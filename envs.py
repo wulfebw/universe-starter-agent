@@ -44,8 +44,8 @@ def create_wob_env(env_id, client_id, remotes, **_):
     height = 210
     width = 160
     env = CropScreen(env, height, width, 75, 10)
-    reduced_height = 84
-    reduced_width = 84
+    reduced_height = 42
+    reduced_width = 42
     env = MiniWOBRescale(env, width=reduced_width, height=reduced_height)
 
     # limit actions to key locations and clicks
@@ -384,6 +384,7 @@ class FlashRescale(vectorized.ObservationWrapper):
         return [_process_frame_flash(observation) for observation in observation_n]
 
 def _process_frame_mini_wob(frame, width, height):
+    frame = cv2.resize(frame, (height*2, width*2))
     frame = cv2.resize(frame, (height, width))
     frame = frame.mean(2).astype(np.float32)
     frame *= (1.0 / 255.0)
