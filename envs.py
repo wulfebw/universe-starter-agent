@@ -6,7 +6,7 @@ from gym import spaces
 import logging
 import universe
 from universe import vectorized
-from universe.wrappers import BlockingReset, GymCoreAction, EpisodeID, Unvectorize, Vectorize, Vision, Logger
+from universe.wrappers import BlockingReset, GymCoreAction, EpisodeID, Unvectorize, Vectorize, Vision, Logger, Monitor
 from universe import spaces as vnc_spaces
 from universe.spaces.vnc_event import keycode
 import time
@@ -35,6 +35,7 @@ def create_env(env_id, client_id, remotes, **kwargs):
 
 def create_wob_env(env_id, client_id, remotes, **_):
     env = gym.make(env_id)
+    env = Monitor(env, '/home/wulfebw/research/universe-starter-agent/videos/', force=True)
     env = Vision(env)
     env = Logger(env)
     env = BlockingReset(env)

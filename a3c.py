@@ -213,7 +213,7 @@ should be computed.
             # on the one hand;  but on the other hand, we get less frequent parameter updates, which
             # slows down learning.  In this code, we found that making local steps be much
             # smaller than 20 makes the algorithm more difficult to tune and to get to work.
-            update_steps = 50
+            update_steps = 20
             self.runner = RunnerThread(env, pi, update_steps, visualise)
 
 
@@ -276,7 +276,7 @@ server.
 
         sess.run(self.sync)  # copy weights from shared to local
         rollout = self.pull_batch_from_queue()
-        batch = process_rollout(rollout, gamma=0.995, lambda_=1.0)
+        batch = process_rollout(rollout, gamma=0.99, lambda_=1.0)
 
         should_compute_summary = self.task == 0 and self.local_steps % 11 == 0
 
