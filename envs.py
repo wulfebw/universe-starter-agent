@@ -35,7 +35,7 @@ def create_env(env_id, client_id, remotes, **kwargs):
 
 def create_wob_env(env_id, client_id, remotes, **_):
     env = gym.make(env_id)
-    env = Monitor(env, '/home/wulfebw/research/universe-starter-agent/videos/', force=True)
+    env = Monitor(env, 'videos/', force=True)
     env = Vision(env)
     env = Logger(env)
     env = BlockingReset(env)
@@ -51,12 +51,16 @@ def create_wob_env(env_id, client_id, remotes, **_):
     # limit actions to key locations and clicks
     # pass the original width and height because those are used 
     # to map the discrete actions back to mouse locations in the screen
-    action_width = 140
-    action_height = 140
+    action_width = 155
+    action_height = 155
     # env = DiscreteToMouseCoordVNCActions(
     #     env, n_xbins=7, n_ybins=7, width=action_width, height=action_height)
-    env = DiscreteToMouseMovementVNCActions(
-        env, width=action_width, height=action_height, step_size=15)
+    # env = DiscreteToMouseMovementVNCActions(
+    #     env, width=action_width, height=action_height, step_size=15)
+    low = np.array([10., 50. + 75.])
+    high = low + np.array([action_width, action_height])
+    coord_space = gym.spaces.Box(low, high)
+    env = ContinuousToMouseCoordVNCActions(env, coord_space)
     logger.info('creating MINI WOB env: {}\n'.format(env_id))
 
     env = EpisodeID(env)
@@ -252,6 +256,30 @@ class FixedKeyState(object):
                 break
         return action_n
 
+def box2box(a, src, dest):
+    # subtract min, divide by range
+    out = (a - src.low) / (src.high - src.low)
+    # multiply by range, add min
+    out = out * (dest.high - dest.low) + dest.low
+    out = np.clip(out, dest.low, dest.high)
+    return out
+
+class ContinuousToMouseCoordVNCActions(vectorized.ActionWrapper):
+    def __init__(self, env, coord_space):
+        super(ContinuousToMouseCoordVNCActions, self).__init__(env)
+        self.coord_space = coord_space
+        # maps from ~gaussian to space
+        self.action_space = spaces.Box(
+            low=np.array([-3.,-3.]),
+            high=np.array([3.,3.]))
+    
+    def _action(self, action_n):
+        actions = []
+        for action in action_n:
+            coords = box2box(action, self.action_space, self.coord_space).astype(int)
+            actions.append([vnc_spaces.PointerEvent(coords[0], coords[1], 0)])
+        return actions
+
 class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
     def __init__(self, env, width, height, step_size=15):
         super(DiscreteToMouseMovementVNCActions, self).__init__(env)
@@ -280,7 +308,7 @@ class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
                 0)]) # build action
         return actions
 
-class DiscreteToMouseCoordVNCActions(vectorized.ActionWrapper):
+class DiscreteToDiscreteMouseCoordVNCActions(vectorized.ActionWrapper):
     def __init__(self, env, n_xbins=7, n_ybins=7, width=160, height=210):
         super(DiscreteToMouseCoordVNCActions, self).__init__(env)
         self._n_x_bins = n_xbins

@@ -1,3 +1,4 @@
+import gym
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.rnn as rnn
@@ -76,12 +77,28 @@ class LSTMPolicy(object):
             lstm, x, initial_state=state_in, sequence_length=step_size,
             time_major=False)
         lstm_c, lstm_h = lstm_state
-        x = tf.reshape(lstm_outputs, [-1, size])
-        self.logits = linear(x, ac_space, "action", normalized_columns_initializer(0.01))
-        self.vf = tf.reshape(linear(x, 1, "value", normalized_columns_initializer(1.0)), [-1])
         self.state_out = [lstm_c[:1, :], lstm_h[:1, :]]
-        self.sample = categorical_sample(self.logits, ac_space)[0, :]
-        self.var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, tf.get_variable_scope().name)
+        x = tf.reshape(lstm_outputs, [-1, size])
+        self.vf = tf.reshape(linear(x, 1, "value", 
+            normalized_columns_initializer(1.0)), [-1])
+
+        # choose between continuous and discrete action spaces
+        if isinstance(ac_space, gym.spaces.Box): # continuous
+            self.mu = linear(x, ac_space.shape[0], "mu",
+                normalized_columns_initializer(0.01))
+            self.logstddev = tf.log(
+                tf.nn.softplus(linear(x, ac_space.shape[0], 'sig',
+                normalized_columns_initializer(0.01))))
+            self.distribution = tf.contrib.distributions.MultivariateNormalDiag(
+                self.mu, tf.exp(self.logstddev), name='action')
+            self.sample = self.distribution.sample()[0, :]
+        else: # discrete
+            self.logits = linear(x, ac_space.n, "action", 
+                normalized_columns_initializer(0.01))
+            self.sample = categorical_sample(self.logits, ac_space.n)[0, :]
+
+        self.var_list = tf.get_collection(
+            tf.GraphKeys.TRAINABLE_VARIABLES, tf.get_variable_scope().name)
 
     def get_initial_features(self):
         return self.state_init

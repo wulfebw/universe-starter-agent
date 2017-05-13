@@ -1,5 +1,6 @@
 from __future__ import print_function
 from collections import namedtuple
+import gym
 import numpy as np
 import tensorflow as tf
 import logging
@@ -125,8 +126,12 @@ runner appends the policy to the queue.
         for _ in range(num_local_steps):
             fetched = policy.act(last_state, *last_features)
             action, value_, features = fetched[0], fetched[1], fetched[2:]
-            # argmax to convert from one-hot
-            state, reward, terminal, info = env.step(action.argmax())
+            # switch based on continuous vs discrete actions
+            if isinstance(env.action_space, gym.spaces.Box): # continuous
+                action_to_take = action
+            else: # discrete: argmax to convert from one-hot
+                action_to_take = action.argmax()
+            state, reward, terminal, info = env.step(action_to_take)
             if render:
                 env.render()
 
@@ -171,39 +176,53 @@ But overall, we'll define the model, specify its inputs, and describe how the po
 should be computed.
 """     
 
-        logger.info('obs space shape in A3C: {}'.format(env.observation_space.shape))
-        logger.info('act space n in A3C: {}'.format(env.action_space.n))
+        logger.info('obs space shape in A3C: {}'.format(env.observation_space))
+        logger.info('act space n in A3C: {}'.format(env.action_space))
 
         self.env = env
         self.task = task
         worker_device = "/job:worker/task:{}/cpu:0".format(task)
         with tf.device(tf.train.replica_device_setter(1, worker_device=worker_device)):
             with tf.variable_scope("global"):
-                self.network = LSTMPolicy(env.observation_space.shape, env.action_space.n)
+                self.network = LSTMPolicy(
+                    env.observation_space.shape, env.action_space)
                 self.global_step = tf.get_variable("global_step", [], tf.int32, initializer=tf.constant_initializer(0, dtype=tf.int32),
                                                    trainable=False)
 
         with tf.device(worker_device):
             with tf.variable_scope("local"):
-                self.local_network = pi = LSTMPolicy(env.observation_space.shape, env.action_space.n)
+                self.local_network = pi = LSTMPolicy(
+                    env.observation_space.shape, env.action_space)
                 pi.global_step = self.global_step
 
-            self.ac = tf.placeholder(tf.float32, [None, env.action_space.n], name="ac")
+            # advantage is common to both continuous and discrete
             self.adv = tf.placeholder(tf.float32, [None], name="adv")
+
+            # choose between continuous and discrete action spaces
+            if isinstance(env.action_space, gym.spaces.Box): # continuous
+                self.ac = tf.placeholder(
+                    tf.float32, [None, env.action_space.shape[0]], name="ac")
+                log_prob_tf = pi.distribution.log_prob(self.ac)
+                pi_loss = - tf.reduce_sum(log_prob_tf * self.adv)
+                entropy = tf.reduce_sum(pi.distribution.entropy())
+            else: # discrete
+                self.ac = tf.placeholder(
+                    tf.float32, [None, env.action_space.n], name="ac")
+
+                log_prob_tf = tf.nn.log_softmax(pi.logits)
+                prob_tf = tf.nn.softmax(pi.logits)
+
+                # the "policy gradients" loss:  its derivative is precisely the policy gradient
+                # notice that self.ac is a placeholder that is provided externally.
+                # adv will contain the advantages, as calculated in process_rollout
+                pi_loss = - tf.reduce_sum(
+                    tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
+
+                entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
+
+            # common to both
             self.r = tf.placeholder(tf.float32, [None], name="r")
-
-            log_prob_tf = tf.nn.log_softmax(pi.logits)
-            prob_tf = tf.nn.softmax(pi.logits)
-
-            # the "policy gradients" loss:  its derivative is precisely the policy gradient
-            # notice that self.ac is a placeholder that is provided externally.
-            # adv will contain the advantages, as calculated in process_rollout
-            pi_loss = - tf.reduce_sum(tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
-
-            # loss of value function
             vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
-            entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
-
             bs = tf.to_float(tf.shape(pi.x)[0])
             self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
 
@@ -215,8 +234,6 @@ should be computed.
             # smaller than 20 makes the algorithm more difficult to tune and to get to work.
             update_steps = 20
             self.runner = RunnerThread(env, pi, update_steps, visualise)
-
-
             grads = tf.gradients(self.loss, pi.var_list)
 
             if use_tf12_api:
