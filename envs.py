@@ -54,7 +54,7 @@ def create_wob_env(env_id, client_id, remotes, **_):
     action_width = 155
     action_height = 155
     env = DiscreteToMouseCoordVNCActions(
-        env, n_xbins=15, n_ybins=15, width=action_width, height=action_height)
+        env, n_xbins=16, n_ybins=16, width=action_width, height=action_height)
     # env = DiscreteToMouseMovementVNCActions(
     #     env, width=action_width, height=action_height, step_size=15)
     # low = np.array([10., 50. + 75.])
@@ -309,7 +309,7 @@ class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
         return actions
 
 class DiscreteToMouseCoordVNCActions(vectorized.ActionWrapper):
-    def __init__(self, env, n_xbins=7, n_ybins=7, width=160, height=210):
+    def __init__(self, env, n_xbins=16, n_ybins=16, width=155, height=155):
         super(DiscreteToMouseCoordVNCActions, self).__init__(env)
         self._n_x_bins = n_xbins
         self._n_y_bins = n_ybins

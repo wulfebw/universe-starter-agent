@@ -86,16 +86,21 @@ class LSTMPolicy(object):
         if isinstance(ac_space, gym.spaces.Box): # continuous
             self.mu = linear(x, ac_space.shape[0], "mu",
                 normalized_columns_initializer(0.01))
-            # self.logstddev = tf.log(
-            #     tf.nn.softplus(linear(x, ac_space.shape[0], 'sig',
-            #     normalized_columns_initializer(0.01))))
-            self.logstddev = tf.ones_like(self.mu) * -2.30259
+            self.logstddev = tf.log(
+                tf.nn.softplus(linear(x, ac_space.shape[0], 'sig',
+                normalized_columns_initializer(0.01))))
             self.distribution = tf.contrib.distributions.MultivariateNormalDiag(
                 self.mu, tf.exp(self.logstddev), name='action')
             self.sample = self.distribution.sample()[0, :]
         else: # discrete
-            self.logits = linear(x, ac_space.n, "action", 
-                normalized_columns_initializer(0.01))
+            # self.logits = linear(x, ac_space.n, "action", 
+            #     normalized_columns_initializer(0.01))
+            # reshape as image
+            side_length = int(np.sqrt(ac_space.n))
+            x = tf.reshape(x, (-1, side_length, side_length, 1))
+            x = tf.nn.elu(conv2d(x, 16, "action_hidden", [3, 3], [1, 1]))
+            x = conv2d(x, 1, "action", [3, 3], [1, 1])
+            self.logits = tf.reshape(x, (-1, ac_space.n))
             self.sample = categorical_sample(self.logits, ac_space.n)[0, :]
 
         self.var_list = tf.get_collection(
