@@ -89,7 +89,7 @@ class LSTMPolicy(object):
             # self.logstddev = tf.log(
             #     tf.nn.softplus(linear(x, ac_space.shape[0], 'sig',
             #     normalized_columns_initializer(0.01))))
-            self.logstddev = tf.ones_like(self.mu) * .1
+            self.logstddev = tf.ones_like(self.mu) * -2.30259
             self.distribution = tf.contrib.distributions.MultivariateNormalDiag(
                 self.mu, tf.exp(self.logstddev), name='action')
             self.sample = self.distribution.sample()[0, :]
