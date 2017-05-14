@@ -53,14 +53,14 @@ def create_wob_env(env_id, client_id, remotes, **_):
     # to map the discrete actions back to mouse locations in the screen
     action_width = 155
     action_height = 155
-    # env = DiscreteToMouseCoordVNCActions(
-    #     env, n_xbins=7, n_ybins=7, width=action_width, height=action_height)
+    env = DiscreteToMouseCoordVNCActions(
+        env, n_xbins=15, n_ybins=15, width=action_width, height=action_height)
     # env = DiscreteToMouseMovementVNCActions(
     #     env, width=action_width, height=action_height, step_size=15)
-    low = np.array([10., 50. + 75.])
-    high = low + np.array([action_width, action_height])
-    coord_space = gym.spaces.Box(low, high)
-    env = ContinuousToMouseCoordVNCActions(env, coord_space)
+    # low = np.array([10., 50. + 75.])
+    # high = low + np.array([action_width, action_height])
+    # coord_space = gym.spaces.Box(low, high)
+    # env = ContinuousToMouseCoordVNCActions(env, coord_space)
     logger.info('creating MINI WOB env: {}\n'.format(env_id))
 
     env = EpisodeID(env)
@@ -308,7 +308,7 @@ class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
                 0)]) # build action
         return actions
 
-class DiscreteToDiscreteMouseCoordVNCActions(vectorized.ActionWrapper):
+class DiscreteToMouseCoordVNCActions(vectorized.ActionWrapper):
     def __init__(self, env, n_xbins=7, n_ybins=7, width=160, height=210):
         super(DiscreteToMouseCoordVNCActions, self).__init__(env)
         self._n_x_bins = n_xbins
@@ -323,14 +323,13 @@ class DiscreteToDiscreteMouseCoordVNCActions(vectorized.ActionWrapper):
         # Each action might be a length-1 np.array. Cast to int to
         # avoid warnings.
         acts = [self._actions[int(action)] for action in action_n]
-        logger.info('Actions: {}\n'.format(acts))
         return acts
 
     def _generate_actions(self):
         self._actions = []
         # add offset to place in middle of bin
-        x_offset = (self._width / self._n_x_bins) / 2.
-        y_offset = (self._height / self._n_y_bins) / 2.
+        x_offset = 0 #(self._width / self._n_x_bins) / 2.
+        y_offset = 0 #(self._height / self._n_y_bins) / 2.
         for xcoord in np.linspace(0, self._width, self._n_x_bins):
             for ycoord in np.linspace(0, self._height, self._n_y_bins):
                 # add 10 to xcoord to move into mini wob region
