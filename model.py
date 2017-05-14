@@ -86,9 +86,10 @@ class LSTMPolicy(object):
         if isinstance(ac_space, gym.spaces.Box): # continuous
             self.mu = linear(x, ac_space.shape[0], "mu",
                 normalized_columns_initializer(0.01))
-            self.logstddev = tf.log(
-                tf.nn.softplus(linear(x, ac_space.shape[0], 'sig',
-                normalized_columns_initializer(0.01))))
+            # self.logstddev = tf.log(
+            #     tf.nn.softplus(linear(x, ac_space.shape[0], 'sig',
+            #     normalized_columns_initializer(0.01))))
+            self.logstddev = tf.ones_like(self.mu) * .1
             self.distribution = tf.contrib.distributions.MultivariateNormalDiag(
                 self.mu, tf.exp(self.logstddev), name='action')
             self.sample = self.distribution.sample()[0, :]

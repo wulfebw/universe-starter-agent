@@ -205,6 +205,15 @@ should be computed.
                 log_prob_tf = pi.distribution.log_prob(self.ac)
                 pi_loss = - tf.reduce_sum(log_prob_tf * self.adv)
                 entropy = tf.reduce_sum(pi.distribution.entropy())
+
+                # continuous only summaries
+                avg_mu = tf.reduce_mean(pi.mu, axis=(0,))
+                tf.summary.scalar("model/mu0", avg_mu[0])
+                tf.summary.scalar("model/mu1", avg_mu[1])
+                avg_stddev = tf.reduce_mean(tf.exp(
+                    pi.logstddev), axis=(0,))
+                tf.summary.scalar("model/sigma0", avg_stddev[0])
+                tf.summary.scalar("model/sigma1", avg_stddev[1])
             else: # discrete
                 self.ac = tf.placeholder(
                     tf.float32, [None, env.action_space.n], name="ac")
