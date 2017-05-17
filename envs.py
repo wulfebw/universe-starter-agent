@@ -22,7 +22,7 @@ register(
     entry_point='debug_chase_circle_env:DebugChaseCircleEnv',
     max_episode_steps=200,
     tags={
-        'wob': True
+        'debug': True
     },
     kwargs={
         'horizon': 200
@@ -35,18 +35,45 @@ def create_env(env_id, client_id, remotes, **kwargs):
     print(spec)
     print(spec.tags)
 
-
     if spec.tags.get('flashgames', False):
         return create_flash_env(env_id, client_id, remotes, **kwargs)
     elif spec.tags.get('atari', False) and spec.tags.get('vnc', False):
         return create_vncatari_env(env_id, client_id, remotes, **kwargs)
     elif spec.tags.get('wob', False):
         return create_wob_env(env_id, client_id, remotes, **kwargs)
+    elif spec.tags.get('debug', False):
+        return create_debug_env(env_id)
     else:
         # Assume atari.
         assert "." not in env_id  # universe environments have dots in names.
         return create_atari_env(env_id)
 
+def create_debug_env(env_id):
+    env = gym.make(env_id)
+    env = Monitor(env, 'videos/', force=True)
+    env = Logger(env)
+    # height and width the same for all mini wob envs
+    height = 210
+    width = 160
+    env = CropScreen(env, height, width, 120, 0)
+    reduced_height = 210
+    reduced_width = 160
+    env = MiniWOBRescale(env, width=reduced_width, height=reduced_height)
+    # limit actions to key locations and clicks
+    # pass the original width and height because those are used 
+    # to map the discrete actions back to mouse locations in the screen
+    action_width = 155
+    action_height = 155
+    env = DiscreteToMouseCoordVNCActions(
+        env, n_xbins=16, n_ybins=16, width=action_width, height=action_height)
+    # env = DiscreteToMouseMovementVNCActions(
+    #     env, width=action_width, height=action_height, step_size=15)
+    # low = np.array([10., 50. + 75.])
+    # high = low + np.array([action_width, action_height])
+    # coord_space = gym.spaces.Box(low, high)
+    # env = ContinuousToMouseCoordVNCActions(env, coord_space)
+    env = Unvectorize(env)
+    return env
 
 def create_wob_env(env_id, client_id, remotes, **_):
     env = gym.make(env_id)

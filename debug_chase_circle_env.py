@@ -10,13 +10,13 @@ from universe.spaces.vnc_event import PointerEvent
 
 logger = logging.getLogger(__name__)
 
-class DebugChaseCircleEnv(gym.Env):
+class DebugChaseCircleEnv(universe.envs.VNCEnv):
     metadata = {
-        'render.modes': ['human', 'rgb_array']
+        'render.modes': ['human', 'rgb_array'],
     }
     def __init__(self, 
             screen_width=160, 
-            screen_height=160+125,
+            screen_height=160+120,
             horizon=200,
             radius=30,
             velscale=5,
@@ -24,7 +24,7 @@ class DebugChaseCircleEnv(gym.Env):
             ):
         self.screen_width = screen_width
         self.screen_height = screen_height
-        self.info_height = 125
+        self.info_height = 120
         self.horizon = horizon
         self.radius = radius
         self.velscale = velscale
@@ -56,11 +56,7 @@ class DebugChaseCircleEnv(gym.Env):
         return x, y, xdot, ydot
 
     def _get_obs(self):
-        # return single element list of observations
-        # where that element is a dictionary indicating
-        # that the vision component of the input is 
-        # the rendered rgb array
-        return [{'vision': self.render(mode='rgb_array')}]
+        return self.render(mode='rgb_array')
 
     def _step(self, action):
         x, y, xdot, ydot, t = self.state
@@ -88,7 +84,7 @@ class DebugChaseCircleEnv(gym.Env):
         # propagate circle
         x, y, xdot, ydot = self._propagate(x, y, xdot, ydot)
         self.state = (x, y, xdot, ydot, t)
-        return self._get_obs(), reward, done, {}
+        return self._get_obs(), reward, done, {'reward':reward}
 
     def _reset(self):
         x = np.random.randint(0 + self.radius, self.screen_width - self.radius)
