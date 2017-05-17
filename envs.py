@@ -53,19 +53,20 @@ def create_debug_env(env_id):
     env = Monitor(env, 'videos/', force=True)
     env = Logger(env)
     # height and width the same for all mini wob envs
-    height = 210
+    height = 160
     width = 160
-    env = CropScreen(env, height, width, 120, 0)
-    reduced_height = 210
-    reduced_width = 160
+    env = CropScreen(env, height, width, 0, 0)
+    reduced_height = 42
+    reduced_width = 42
     env = MiniWOBRescale(env, width=reduced_width, height=reduced_height)
     # limit actions to key locations and clicks
     # pass the original width and height because those are used 
     # to map the discrete actions back to mouse locations in the screen
-    action_width = 155
-    action_height = 155
+    action_width = 160
+    action_height = 160
     env = DiscreteToMouseCoordVNCActions(
-        env, n_xbins=16, n_ybins=16, width=action_width, height=action_height)
+        env, n_xbins=16, n_ybins=16, width=action_width, height=action_height,
+            top=0, left=0)
     # env = DiscreteToMouseMovementVNCActions(
     #     env, width=action_width, height=action_height, step_size=15)
     # low = np.array([10., 50. + 75.])
@@ -351,10 +352,13 @@ class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
         return actions
 
 class DiscreteToMouseCoordVNCActions(vectorized.ActionWrapper):
-    def __init__(self, env, n_xbins=16, n_ybins=16, width=155, height=155):
+    def __init__(self, env, n_xbins=16, n_ybins=16, width=155, height=155,
+            top=125, left=10):
         super(DiscreteToMouseCoordVNCActions, self).__init__(env)
         self._n_x_bins = n_xbins
         self._n_y_bins = n_ybins
+        self._top = top
+        self._left = left
         self._width = width
         self._height = height
         self._generate_actions()
@@ -375,10 +379,10 @@ class DiscreteToMouseCoordVNCActions(vectorized.ActionWrapper):
         for xcoord in np.linspace(0, self._width, self._n_x_bins):
             for ycoord in np.linspace(0, self._height, self._n_y_bins):
                 # add 10 to xcoord to move into mini wob region
-                xcoord_val = int(xcoord + 10 + x_offset)
+                xcoord_val = int(xcoord + self._left + x_offset)
                 # add 75 to ycoord to move into mini wob region
                 # add 50 to ycoord to move out of text region
-                ycoord_val = int(ycoord + 75 + 50 + y_offset)
+                ycoord_val = int(ycoord + self._top + y_offset)
                 # set action as mouse movement to coordinates
                 # mouse not pressed down
                 action = universe.spaces.PointerEvent(xcoord_val, ycoord_val, 0)

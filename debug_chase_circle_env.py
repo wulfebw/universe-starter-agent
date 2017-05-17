@@ -16,15 +16,16 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
     }
     def __init__(self, 
             screen_width=160, 
-            screen_height=160+120,
+            screen_height=160,
             horizon=200,
             radius=30,
             velscale=5,
-            mouse_s=10
+            mouse_s=10,
+            info_height=0
             ):
         self.screen_width = screen_width
         self.screen_height = screen_height
-        self.info_height = 120
+        self.info_height = info_height
         self.horizon = horizon
         self.radius = radius
         self.velscale = velscale
