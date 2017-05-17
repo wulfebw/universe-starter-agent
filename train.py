@@ -5,6 +5,7 @@ Envs:
 PongDeterministic-v3
 wob.mini.BisectAngle-v0
 wob.mini.ChaseCircle-v0
+wob.mini.DebugChaseCircle-v0
 '''
 import argparse
 import os

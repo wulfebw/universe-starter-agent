@@ -14,6 +14,21 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 universe.configure_logging()
 
+
+from gym.envs.registration import register
+
+register(
+    id='wob.mini.DebugChaseCircle-v0',
+    entry_point='debug_chase_circle_env:DebugChaseCircleEnv',
+    max_episode_steps=200,
+    tags={
+        'wob': True
+    },
+    kwargs={
+        'horizon': 200
+    }
+)
+
 def create_env(env_id, client_id, remotes, **kwargs):
     spec = gym.spec(env_id)
 
@@ -51,8 +66,8 @@ def create_wob_env(env_id, client_id, remotes, **_):
     # limit actions to key locations and clicks
     # pass the original width and height because those are used 
     # to map the discrete actions back to mouse locations in the screen
-    action_width = 155
-    action_height = 155
+    action_width = 160
+    action_height = 160
     env = DiscreteToMouseCoordVNCActions(
         env, n_xbins=16, n_ybins=16, width=action_width, height=action_height)
     # env = DiscreteToMouseMovementVNCActions(
