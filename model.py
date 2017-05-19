@@ -54,7 +54,7 @@ class LSTMPolicy(object):
         # introduce a "fake" batch dimension of 1 after flatten so that we can do LSTM over time dim
         x = tf.expand_dims(flatten(x), [0])
 
-        size = 256
+        size = 64
         if use_tf100_api:
             lstm = rnn.BasicLSTMCell(size, state_is_tuple=True)
         else:
@@ -79,7 +79,11 @@ class LSTMPolicy(object):
         lstm_c, lstm_h = lstm_state
         self.state_out = [lstm_c[:1, :], lstm_h[:1, :]]
         x = tf.reshape(lstm_outputs, [-1, size])
-        self.vf = tf.reshape(linear(x, 1, "value", 
+        # add hidden layer to value output so that less of a burden is placed 
+        # on the lstm to output values for both the policy and value function
+        vfhid = tf.nn.elu(linear(x, size, "value_hidden", 
+            normalized_columns_initializer(0.01)))
+        self.vf = tf.reshape(linear(vfhid, 1, "value", 
             normalized_columns_initializer(1.0)), [-1])
 
         # choose between continuous and discrete action spaces
@@ -96,10 +100,16 @@ class LSTMPolicy(object):
             # self.logits = linear(x, ac_space.n, "action", 
             #     normalized_columns_initializer(0.01))
             # reshape as image
-            side_length = int(np.sqrt(ac_space.n))
-            x = tf.reshape(x, (-1, side_length, side_length, 1))
-            x = tf.nn.elu(conv2d(x, 16, "action_hidden", [3, 3], [1, 1]))
+            in_side_length = 8
+            mid_side_length = 12
+            out_side_length = 16
+            x = tf.reshape(x, (-1, in_side_length, in_side_length, 1))
+            x = tf.nn.elu(conv2d(x, 32, "action_hidden_1", [3, 3], [1, 1]))
+            x = tf.image.resize_images(x, [mid_side_length, mid_side_length])
+            x = tf.nn.elu(conv2d(x, 32, "action_hidden_2", [3, 3], [1, 1]))
+            x = tf.image.resize_images(x, [out_side_length, out_side_length])
             x = conv2d(x, 1, "action", [3, 3], [1, 1])
+
             self.logits = tf.reshape(x, (-1, ac_space.n))
             self.sample = categorical_sample(self.logits, ac_space.n)[0, :]
 

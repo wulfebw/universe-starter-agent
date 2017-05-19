@@ -21,15 +21,19 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
             radius=30,
             velscale=5,
             mouse_s=10,
-            info_height=0
+            info_height=0,
+            scaled_reward=False,
+            centered=False
             ):
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.info_height = info_height
         self.horizon = horizon
         self.radius = radius
-        self.velscale = velscale
         self.mouse_s = mouse_s
+        self.velscale = velscale
+        self.scaled_reward = scaled_reward
+        self.centered = centered
         
         self.action_space = universe.spaces.VNCActionSpace()
         self.observation_space = gym.spaces.Box(low=0, high=255, 
@@ -42,6 +46,12 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
     def _in_circle(self, ax, ay, x, y):
         # euclidean distance less than radius
         return np.sqrt((x - ax) ** 2 + (y - ay) ** 2) < self.radius
+
+    def _scaled_reward(self, ax, ay, x, y):
+        # quadratic scaling from center of circle
+        dist = np.sqrt((x - ax) ** 2 + (y - ay) ** 2)
+        max_dist = np.sqrt(self.screen_height ** 2 + self.screen_width ** 2)
+        return 1. / self.horizon * (1 - dist / max_dist) ** 2
 
     def _propagate(self, x, y, xdot, ydot):
         # check for contacting wall and reverse if so
@@ -75,10 +85,13 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
         ax, ay = action.x, action.y
         ay -= self.info_height
 
-        # reward for action inside circle
+        # reward for action inside circle or nearby circle
         reward = 0
-        if self._in_circle(ax, ay, x, y):
-            reward = 1. / self.horizon
+        if self.scaled_reward:
+            reward = self._scaled_reward(ax, ay, x, y)
+        else:
+            if self._in_circle(ax, ay, x, y):
+                reward = 1. / self.horizon
         # set this value for rendering of the mouse
         self._mouse = (ax, ay)
 
@@ -88,11 +101,16 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
         return self._get_obs(), reward, done, {'reward':reward}
 
     def _reset(self):
-        x = np.random.randint(0 + self.radius, self.screen_width - self.radius)
-        y = np.random.randint(0 + self.radius, 
-            self.screen_height - self.radius - self.info_height)
-        xdot = np.random.rand() * self.velscale - .5
-        ydot = np.random.rand() * self.velscale - .5
+        if self.centered:
+            x = self.screen_width / 2.
+            y = self.screen_height / 2.
+        else:
+            x = np.random.randint(0 + self.radius, 
+                self.screen_width - self.radius)
+            y = np.random.randint(0 + self.radius, 
+                self.screen_height - self.radius - self.info_height)
+        xdot = (np.random.rand() - .5) * self.velscale
+        ydot = (np.random.rand() - .5) * self.velscale
         self.state = (x, y, xdot, ydot, self.horizon)
         return self._get_obs()
 
@@ -106,11 +124,6 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
         if self.viewer is None:
             from gym.envs.classic_control import rendering
             self.viewer = rendering.Viewer(self.screen_width, self.screen_height)
-            # circle
-            circle = rendering.make_circle(radius=self.radius)
-            self.circle_trans = rendering.Transform()
-            circle.add_attr(self.circle_trans)
-            self.viewer.add_geom(circle)
             # mouse
             s = self.mouse_s
             mouse = rendering.make_polygon(
@@ -118,6 +131,11 @@ class DebugChaseCircleEnv(universe.envs.VNCEnv):
             self.mouse_trans = rendering.Transform()
             mouse.add_attr(self.mouse_trans)
             self.viewer.add_geom(mouse)
+            # circle
+            circle = rendering.make_circle(radius=self.radius, filled=True)
+            self.circle_trans = rendering.Transform()
+            circle.add_attr(self.circle_trans)
+            self.viewer.add_geom(circle)
             # info section 
             info_section = self.viewer.draw_polygon([
                 (0,self.screen_height), 

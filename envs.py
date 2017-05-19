@@ -29,6 +29,62 @@ register(
     }
 )
 
+register(
+    id='wob.mini.DebugStationaryChaseCircle-v0',
+    entry_point='debug_chase_circle_env:DebugChaseCircleEnv',
+    max_episode_steps=200,
+    tags={
+        'debug': True
+    },
+    kwargs={
+        'horizon': 200,
+        'velscale': 0
+    }
+)
+
+register(
+    id='wob.mini.DebugStationaryScaledRewardChaseCircle-v0',
+    entry_point='debug_chase_circle_env:DebugChaseCircleEnv',
+    max_episode_steps=200,
+    tags={
+        'debug': True
+    },
+    kwargs={
+        'horizon': 200,
+        'velscale': 0,
+        'scaled_reward': True
+    }
+)
+
+register(
+    id='wob.mini.DebugStationaryCenteredChaseCircle-v0',
+    entry_point='debug_chase_circle_env:DebugChaseCircleEnv',
+    max_episode_steps=200,
+    tags={
+        'debug': True
+    },
+    kwargs={
+        'horizon': 200,
+        'velscale': 0,
+        'centered': True
+    }
+)
+
+register(
+    id='wob.mini.DebugStationaryScaledRewardCenteredChaseCircle-v0',
+    entry_point='debug_chase_circle_env:DebugChaseCircleEnv',
+    max_episode_steps=200,
+    tags={
+        'debug': True
+    },
+    kwargs={
+        'horizon': 200,
+        'velscale': 0,
+        'scaled_reward': True,
+        'centered': True
+    }
+)
+
 def create_env(env_id, client_id, remotes, **kwargs):
     spec = gym.spec(env_id)
 
@@ -350,6 +406,34 @@ class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
                 new_coords[1] + 75 + 50 + 10, 
                 0)]) # build action
         return actions
+
+# class DiscreteToMouseMovementVNCActions(vectorized.ActionWrapper):
+#     def __init__(self, env, width, height, max_step_size=15, n_bins=10):
+#         super(DiscreteToMouseMovementVNCActions, self).__init__(env)
+#         # x, y
+#         self.coords = np.array([int(width/2), int(height/2)])
+#         self.width = width
+#         self.height = height
+#         self.action_map = {
+#             0: np.array([step_size, 0]), # move right 
+#             1: np.array([0, step_size]), # move down
+#             2: np.array([-step_size, 0]), # move left
+#             3: np.array([0, -step_size]) # move up
+#         }
+#         self.action_space = spaces.MultiDiscrete()
+
+#     def _action(self, action_n):
+#         actions = []
+#         for action_idx in action_n:
+#             new_coords = self.coords + self.action_map[action_idx]
+#             new_coords[0] = int(min(max(new_coords[0], 0), self.width))
+#             new_coords[1] = int(min(max(new_coords[1], 0), self.height))
+#             self.coords = new_coords # update coordinates
+#             actions.append([universe.spaces.PointerEvent(
+#                 new_coords[0] + 15, 
+#                 new_coords[1] + 75 + 50 + 10, 
+#                 0)]) # build action
+#         return actions
 
 class DiscreteToMouseCoordVNCActions(vectorized.ActionWrapper):
     def __init__(self, env, n_xbins=16, n_ybins=16, width=155, height=155,

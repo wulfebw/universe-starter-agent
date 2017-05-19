@@ -218,6 +218,12 @@ should be computed.
                 self.ac = tf.placeholder(
                     tf.float32, [None, env.action_space.n], name="ac")
 
+                side_length = int(np.sqrt(env.action_space.n))
+                if side_length == np.sqrt(env.action_space.n):
+                    pi_heatmap = tf.reshape(pi.logits, (-1, side_length, side_length, 1))
+                    tf.summary.image("model/heatmap", 
+                        tf.contrib.image.rotate(pi_heatmap, 90))
+
                 log_prob_tf = tf.nn.log_softmax(pi.logits)
                 prob_tf = tf.nn.softmax(pi.logits)
 
@@ -233,7 +239,11 @@ should be computed.
             self.r = tf.placeholder(tf.float32, [None], name="r")
             vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
             bs = tf.to_float(tf.shape(pi.x)[0])
-            self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
+            beta = tf.train.polynomial_decay(0.002, self.global_step, 
+                end_learning_rate=0.00002,
+                decay_steps=1000000, 
+                power=2)
+            self.loss = pi_loss + 0.5 * vf_loss - entropy * beta
 
             # 20 represents the number of "local steps":  the number of timesteps
             # we run the policy before we update the parameters.
@@ -247,11 +257,15 @@ should be computed.
 
             if use_tf12_api:
                 tf.summary.scalar("model/policy_loss", pi_loss / bs)
+                tf.summary.scalar("model/value_mean", tf.reduce_mean(pi.vf))
                 tf.summary.scalar("model/value_loss", vf_loss / bs)
+                tf.summary.scalar("model/value_loss_scaled", vf_loss / bs * .5)
                 tf.summary.scalar("model/entropy", entropy / bs)
+                tf.summary.scalar("model/entropy_loss_scaleed", -entropy / bs * beta)
                 tf.summary.image("model/state", pi.x)
                 tf.summary.scalar("model/grad_global_norm", tf.global_norm(grads))
                 tf.summary.scalar("model/var_global_norm", tf.global_norm(pi.var_list))
+                tf.summary.scalar("model/beta", beta)
                 self.summary_op = tf.summary.merge_all()
 
             else:
@@ -272,7 +286,8 @@ should be computed.
             inc_step = self.global_step.assign_add(tf.shape(pi.x)[0])
 
             # each worker has a different set of adam optimizer parameters
-            opt = tf.train.AdamOptimizer(1e-4)
+            lr = 2e-4
+            opt = tf.train.AdamOptimizer(lr)
             self.train_op = tf.group(opt.apply_gradients(grads_and_vars), inc_step)
             self.summary_writer = None
             self.local_steps = 0
